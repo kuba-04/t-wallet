@@ -1,0 +1,9 @@
+[package]
+name = "tauri-wallet"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bdk_wallet = { version = "1.1.0", features = ["rusqlite"] }
+bdk_esplora = { version = "0.20.1", features = ["blocking"] }
+rand = "0.8.5"
