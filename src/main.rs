@@ -16,11 +16,15 @@ const PARALLEL_REQUESTS: usize = 1;
 
 fn main() {
 
-    // taproot descriptors (tr()) using public keys on Signet (tpub) as described in BIP86.
-    let descriptor = Descriptor::new();
-    println!("Creating a new Descriptor: {}", &descriptor.to_string());
-    let descriptor_str = descriptor.pubkey;
-    let change_descriptor_str = descriptor.change_pubkey;
+    // you can create a new descriptor
+    // let descriptor = Descriptor::new();
+    // println!("Creating a new Descriptor: {}", &descriptor.to_string());
+    // let descriptor_str = descriptor.pubkey;
+    // let change_descriptor_str = descriptor.change_pubkey;
+
+    // once you have your descriptors, you can use them to create a wallet.
+    let descriptor_str: &str = "tr([a2f8ef2c/86'/1'/0']tpubDDabhdF9v5e4zXeCkhsczu1cD2PLR6mDwDeKEqq4XkrHasQRSvLXDXAngZ15vc7vhJiippdKb5ZUnVmo7zknkHj1zqvddS8q6j2uEerJ2L1/0/*)#6zkee8fx";
+    let change_descriptor_str: &str = "tr([a2f8ef2c/86'/1'/0']tpubDDabhdF9v5e4zXeCkhsczu1cD2PLR6mDwDeKEqq4XkrHasQRSvLXDXAngZ15vc7vhJiippdKb5ZUnVmo7zknkHj1zqvddS8q6j2uEerJ2L1/1/*)#tkncyje7";
 
     // init the connection to the db
     let mut conn = Connection::open(DB_PATH).expect("Can't open the database");
@@ -95,5 +99,8 @@ fn main() {
     let tx = psbt.extract_tx().unwrap();
     client.broadcast(&tx).unwrap();
     println!("Transaction broadcasted! Txid: {}", tx.compute_txid());
+
+    let balance = wallet.balance();
+    println!("Wallet Balance: {} sat", balance.total().to_sat());
 
 }

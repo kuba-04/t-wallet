@@ -1357,7 +1357,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-wallet"
+name = "t-wallet"
 version = "0.1.0"
 dependencies = [
  "bdk_esplora",
