@@ -17,5 +17,6 @@ Example: `tb1pyhh43adldc5ksl7hr9ax7fxulskaedg2srsmra9zdmlgvcmuku0s07675w`
 
 5. Run the program again and see if the balance was updated.
 
-6. Send the funds back to the faucet which address is `tb1p4tp4l6glyr2gs94neqcpr5gha7344nfyznfkc8szkreflscsdkgqsdent4`. 
+6. Send the funds back to the faucet which address is `tb1p4tp4l6glyr2gs94neqcpr5gha7344nfyznfkc8szkreflscsdkgqsdent4`.
+In order to do that, you need to use private keys instead as the descriptors: `tr(tprv...`
 

@@ -1,42 +1,65 @@
 mod descriptors;
 
-use std::process::exit;
-use std::str::FromStr;
-use bdk_esplora::{esplora_client, EsploraExt};
+use crate::descriptors::Descriptor;
 use bdk_esplora::esplora_client::Builder;
-use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{AddressInfo, KeychainKind, SignOptions, Wallet};
+use bdk_esplora::{EsploraExt, esplora_client};
 use bdk_wallet::bitcoin::{Address, Amount, FeeRate, Network, Psbt};
 use bdk_wallet::chain::spk_client::{FullScanRequestBuilder, FullScanResponse};
-use crate::descriptors::Descriptor;
+use bdk_wallet::rusqlite::Connection;
+use bdk_wallet::{AddressInfo, KeychainKind, SignOptions, Wallet};
+use std::io;
+use std::process::exit;
+use std::str::FromStr;
 
 const DB_PATH: &str = "./my_db.db3";
 const STOP_GAP: usize = 10;
 const PARALLEL_REQUESTS: usize = 1;
 
 fn main() {
+    println!("=================");
+    println!("##  T-Wallet   ##");
+    println!("=================");
+    println!();
+    let mut descriptor_str = String::new();
+    let mut change_descriptor_str = String::new();
+    println!("Create new or load from descriptor:");
+    println!("-new (n)");
+    println!("-load (l)");
+    let mut select = String::new();
+    let _ = io::stdin().read_line(&mut select);
+    match select.trim() {
+        "n" => {
+            let descriptor = Descriptor::new();
+            println!("Creating a new Descriptor: {}", &descriptor.to_string());
+            descriptor_str = descriptor.privkey;
+            change_descriptor_str = descriptor.change_privkey;
+        }
+        "l" => {
+            println!("Enter descriptor:");
+            let mut descriptor_str_in = String::new();
+            let _ = io::stdin().read_line(&mut descriptor_str_in);
+            descriptor_str = descriptor_str_in.trim().to_string();
 
-    // you can create a new descriptor
-    // let descriptor = Descriptor::new();
-    // println!("Creating a new Descriptor: {}", &descriptor.to_string());
-    // let descriptor_str = descriptor.pubkey;
-    // let change_descriptor_str = descriptor.change_pubkey;
-
-    // once you have your descriptors, you can use them to create a wallet.
-    let descriptor_str: &str = "tr([a2f8ef2c/86'/1'/0']tpubDDabhdF9v5e4zXeCkhsczu1cD2PLR6mDwDeKEqq4XkrHasQRSvLXDXAngZ15vc7vhJiippdKb5ZUnVmo7zknkHj1zqvddS8q6j2uEerJ2L1/0/*)#6zkee8fx";
-    let change_descriptor_str: &str = "tr([a2f8ef2c/86'/1'/0']tpubDDabhdF9v5e4zXeCkhsczu1cD2PLR6mDwDeKEqq4XkrHasQRSvLXDXAngZ15vc7vhJiippdKb5ZUnVmo7zknkHj1zqvddS8q6j2uEerJ2L1/1/*)#tkncyje7";
+            println!("Enter descriptor for change addresses:");
+            let mut change_descriptor_str_in = String::new();
+            let _ = io::stdin().read_line(&mut change_descriptor_str_in);
+            change_descriptor_str = change_descriptor_str_in.trim().to_string();
+        }
+        _ => exit(0),
+    };
 
     // init the connection to the db
     let mut conn = Connection::open(DB_PATH).expect("Can't open the database");
 
     // create wallet
-    let wallet_opt = Wallet::load()
-        .descriptor(KeychainKind::External, Some(descriptor_str.clone()))
-        .descriptor(KeychainKind::Internal, Some(change_descriptor_str.clone()))
-        .extract_keys() // when using private descriptors
+    let mut load_params = Wallet::load()
         .check_network(Network::Signet)
-        .load_wallet(&mut conn)
-        .unwrap();
+        .descriptor(KeychainKind::External, Some(descriptor_str.clone()))
+        .descriptor(KeychainKind::Internal, Some(change_descriptor_str.clone()));
+    if descriptor_str.contains("tprv") && change_descriptor_str.contains("tprv") {
+        load_params = load_params.extract_keys();
+    }
+    let wallet_opt = load_params.load_wallet(&mut conn).unwrap();
 
     let mut wallet = if let Some(loaded_wallet) = wallet_opt {
         loaded_wallet
@@ -72,26 +95,28 @@ fn main() {
         let address: AddressInfo = wallet.reveal_next_address(KeychainKind::External);
         println!(
             "Send Signet coins to {} (address generated at index {})",
-            address.address, address.index);
+            address.address, address.index
+        );
         wallet.persist(&mut conn).unwrap();
         exit(0);
     }
 
     // use a faucet return address
-    let faucet_address = Address::from_str("tb1p4tp4l6glyr2gs94neqcpr5gha7344nfyznfkc8szkreflscsdkgqsdent4")
-        .unwrap()
-        .require_network(Network::Signet)
-        .unwrap();
+    let faucet_address =
+        Address::from_str("tb1p4tp4l6glyr2gs94neqcpr5gha7344nfyznfkc8szkreflscsdkgqsdent4")
+            .unwrap()
+            .require_network(Network::Signet)
+            .unwrap();
 
     let send_amount: Amount = Amount::from_sat(5000);
 
     // broadcast the transaction
-    let mut builder = wallet.build_tx();
-    builder
-        .fee_rate(FeeRate::from_sat_per_vb(4).unwrap())
-        .add_recipient(faucet_address.script_pubkey(), send_amount);
-
-    let mut psbt: Psbt = builder.finish().unwrap();
+    let mut psbt = {
+        let mut builder = wallet.build_tx();
+        builder.add_recipient(faucet_address.script_pubkey(), send_amount);
+        // builder.fee_rate(FeeRate::from_sat_per_vb(4).unwrap());
+        builder.finish().unwrap()
+    };
 
     let finalized = wallet.sign(&mut psbt, SignOptions::default()).unwrap();
     assert!(finalized, "Unable to finalize transaction");
@@ -102,5 +127,4 @@ fn main() {
 
     let balance = wallet.balance();
     println!("Wallet Balance: {} sat", balance.total().to_sat());
-
 }
